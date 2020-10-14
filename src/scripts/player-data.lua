@@ -91,27 +91,20 @@ end
 
 function player_data.set_request(player, player_table, request_data, temporary_request)
   local existing_request
+  
   if request_data.index then
-    -- correct slot index if it was changed
     existing_request = player.character.get_personal_logistic_slot(request_data.index)
+
+    -- correct slot index if it was changed
     if tostring(existing_request.name) ~= request_data.name then
       existing_request = player_data.find_request(player, request_data.name)
-      if existing_request then
-        request_data.index = existing_request.index
-      else
-        -- find first empty slot
-        existing_request = player_data.find_request(player, "nil")
-        if existing_request then
-          request_data.index = existing_request.index
-        else
-          player.print{"qis-message.no-available-logistic-request-slots"}
-          return false
-        end
-      end
     end
-  else
+  end
+
+  if not existing_request then
     -- find first empty slot
     existing_request = player_data.find_request(player, "nil")
+
     if existing_request then
       request_data.index = existing_request.index
     else
@@ -119,8 +112,11 @@ function player_data.set_request(player, player_table, request_data, temporary_r
       return false
     end
   end
-
+  
+  -- clear the slot before setting it to the new values (avoids a possible factorio bug)
+  player.character.set_personal_logistic_slot(request_data.index, {})
   player.character.set_personal_logistic_slot(request_data.index, request_data)
+
   if temporary_request then
     player_table.flags.has_temporary_requests = true
     table.insert(player_table.temporary_requests, {temporary_request=request_data, previous_request=existing_request})
@@ -163,6 +159,8 @@ function player_data.check_temporary_requests(player, player_table)
         -- check request fulfillment
         if item_count >= temporary_request.min and item_count <= temporary_request.max then
           local previous_request = next_request.previous_request
+          -- clear the slot before resetting the request
+          set_request(temporary_request.index, {})
           set_request(temporary_request.index, previous_request)
           remove_request = true
         end
